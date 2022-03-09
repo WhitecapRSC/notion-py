@@ -27,7 +27,6 @@ from .store import RecordStore
 from .user import User
 from .utils import extract_id, now
 
-
 def create_session(client_specified_retry=None):
     """
     retry on 502
@@ -54,7 +53,6 @@ def create_session(client_specified_retry=None):
     adapter = HTTPAdapter(max_retries=retry)
     session.mount("https://", adapter)
     return session
-
 
 class NotionClient(object):
     """
@@ -402,7 +400,6 @@ class NotionClient(object):
                 )
 
         return record_id
-
 
 class Transaction(object):
 
