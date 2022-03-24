@@ -7,7 +7,7 @@ from .collection import NotionDate
 
 def run_live_smoke_test(token_v2, parent_page_url_or_id):
 
-    client = NotionClient(token_v2=token_v2)
+    client = NotionClient(api_key=token_v2)
 
     parent_page = client.get_block(parent_page_url_or_id)
 

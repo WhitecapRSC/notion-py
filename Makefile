@@ -13,3 +13,12 @@ clean:
 
 install:
 	python setup.py install
+
+test-coverage-report:
+	@pytest --cov ./notion
+
+test-coverage-report-html:
+	@pytest --cov --cov-report=html ./notion
+
+test-coverage-report-xml:
+	@pytest --cov --cov-report=xml ./notion

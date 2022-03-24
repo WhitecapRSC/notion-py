@@ -5,3 +5,7 @@ tzlocal
 python-slugify
 dictdiffer
 cached-property
+python-dotenv
+coverage
+pytest
+pytest-cov

@@ -27,59 +27,56 @@ from .store import RecordStore
 from .user import User
 from .utils import extract_id, now
 
-def create_session(client_specified_retry=None):
-    """
-    retry on 502
-    """
-    session = Session()
-    if client_specified_retry:
-        retry = client_specified_retry
-    else:
-        retry = Retry(
-            5,
-            backoff_factor=0.3,
-            status_forcelist=(502, 503, 504),
-            # CAUTION: adding 'POST' to this list which is not technically idempotent
-            method_whitelist=(
-                "POST",
-                "HEAD",
-                "TRACE",
-                "GET",
-                "PUT",
-                "OPTIONS",
-                "DELETE",
-            ),
-        )
-    adapter = HTTPAdapter(max_retries=retry)
-    session.mount("https://", adapter)
-    return session
-
 class NotionClient(object):
-    """
-    This is the entry point to using the API. Create an instance of this class, passing it the value of the
-    "token_v2" cookie from a logged-in browser session on Notion.so. Most of the methods on here are primarily
-    for internal use -- the main one you'll likely want to use is `get_block`.
-    """
+    '''
+    Notion Client Class
+    
+    The notion client class is the main entry point for interacting with the notion api.
+    Create an instance of this class, passing it your notion api key (found in https://www.notion.so/my-integrations/).
+    Most of the methods on here are primarily for interanl use. The main methods you should use are:
+    - get_block
+    - get_collection_view
+    - start_monitoring
 
+    For more information on the notion api, see https://notion.so/api
+
+    For more information about the notion client, see https://github.com/WhitecapRSC/notion-py (this repo); forked from https://github.com/jamalex/notion-py
+    '''
     def __init__(
         self,
-        token_v2=None,
+        api_key=None,
+        version=None,
         monitor=False,
         start_monitoring=False,
         enable_caching=False,
         cache_key=None,
-        email=None,
-        password=None,
+        notion_default_config={},
         client_specified_retry=None,
     ):
-        self.session = create_session(client_specified_retry)
-        if token_v2:
-            self.session.cookies = cookiejar_from_dict({"token_v2": token_v2})
-        else:
-            self._set_token(email=email, password=password)
+        '''
+        Initialize a notion client.
+        
+        @param api_key (string): Your notion api key. You can find this in your notion account settings.
+        @param version (string): The notion api version to use. 
+        @param monitor (bool): If True, start a background process to monitor for changes to the database.
+        @param start_monitoring (bool): If True, start the monitor process immediately.
+        @param enable_caching (bool): If True, enable caching.
+        @param cache_key (string): If enable_caching is True, this is the key to use for caching.
+        @param notion_default_config (dict): A dict of default values to use for the notion client.
+        @param client_specified_retry (object): If you want to use a custom retry policy, pass it here.
+        '''
+        # TEST_CASE_ADDED:
+        self._api_key = api_key
+        self._version = version or '2022-02-22' # NOTE: 2022-02-22 is the version when notion api was out of beta
+        self.session = Session()
+        self.session.headers.update({'Authorization': 'Bearer ' + self._api_key, 'Notion-Version': self._version})
+        self.session.mount("https://", HTTPAdapter(max_retries=Retry(5,backoff_factor=0.3,status_forcelist=(502, 503, 504),
+            # CAUTION: adding 'POST' to this list which is not technically idempotent
+            allowed_methods=("POST","HEAD","TRACE","GET","PUT","OPTIONS","DELETE",),
+        )))
 
         if enable_caching:
-            cache_key = cache_key or hashlib.sha256(token_v2.encode()).hexdigest()
+            cache_key = cache_key or hashlib.sha256(api_key.encode()).hexdigest()
             self._store = RecordStore(self, cache_key=cache_key)
         else:
             self._store = RecordStore(self)
@@ -90,7 +87,19 @@ class NotionClient(object):
         else:
             self._monitor = None
 
-        self._update_user_info()
+        # NOTE: Notion Defaults
+        if notion_default_config:
+            self._notion_default_config = notion_default_config
+        else:
+            self._notion_default_config = {
+                "search_page_size": 100,
+                'default_sort': {
+                    "direction":"ascending",
+                    "timestamp":"last_edited_time"
+                }
+            }
+
+        # self.available_pages = self._get_all_available_pages()
 
     def start_monitoring(self):
         self._monitor.poll_async()
@@ -120,10 +129,27 @@ class NotionClient(object):
             password = getpass("Enter your Notion password:\n")
         self.post("loginWithEmail", {"email": email, "password": password}).json()
 
-    def _update_user_info(self):
-        records = self.post("loadUserContent", {}).json()["recordMap"]
-        if not records["space"]:
-            self._fetch_guest_space_data(records)
+    def get_all_available_pages(self):
+        '''
+        Get all available pages.
+        
+        @return (list): A list of all available pages.
+        @rtype (list)
+        '''
+        # TEST_CASE_ADDED:
+        pages = []
+        response = self.post('search', {
+            "query":"",
+            "sort":self._notion_default_config['default_sort'],
+            "page_size":self._notion_default_config['search_page_size']}).json()
+        while response['has_more']:
+            pages += response['results']
+            response = self.post('search', {
+                "query":"",
+                "sort":{self._notion_default_config['default_sort']},
+                "page_size":self._notion_default_config['search_page_size'],
+                "start_cursor":response['next_cursor']}).json()
+        return pages
 
         self._store.store_recordmap(records)
         self.current_user = self.get_user(list(records["notion_user"].keys())[0])
