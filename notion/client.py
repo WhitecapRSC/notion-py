@@ -213,7 +213,7 @@ class NotionClient(object):
         @rtype (list)
         '''
         # TEST_CASE_ADDED:
-        return [page for page in self.get_all_available_pages() if page.parent == "workspace"]
+        return [page for page in self.get_all_available_pages() if page['parent']['type'] == "workspace"]
 
     @deprecated(version="1.0.0", reason="Unofficial old API v3 endpoint. No longer used.")
     def get_email_uid(self):

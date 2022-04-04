@@ -74,6 +74,13 @@ class TestClient(unittest.TestCase):
         assert pages != None
         assert len(pages) > 5
 
+    def test_get_all_root_pages(self):
+        client = NotionClient(api_key=API_KEY)
+        assert client.get_all_available_root_pages() != None
+        assert len(client.get_all_available_root_pages()) > 0
+        for p in client.get_all_available_root_pages():
+            assert p['parent']['type'] == "workspace"
+
     # def test_get_block(self, api_key):
     #     client = NotionClient(token_v2=api_key)
     #     block = client.get_block("https://www.notion.so/a9f9e3a3-d5e5-4e5c-8b4a-d9e6c9e6f9a9")
