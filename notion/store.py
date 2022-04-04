@@ -15,14 +15,11 @@ from .logger import logger
 from .settings import CACHE_DIR
 from .utils import extract_id
 
-
 class MissingClass(object):
     def __bool__(self):
         return False
 
-
 Missing = MissingClass()
-
 
 class Callback(object):
     def __init__(
@@ -72,7 +69,6 @@ class Callback(object):
         else:
             return False
 
-
 class RecordStore(object):
     def __init__(self, client, cache_key=None):
         self._mutex = Lock()
@@ -89,28 +85,6 @@ class RecordStore(object):
 
     def _get(self, table, id):
         return self._values[table].get(id, Missing)
-
-    def add_callback(self, record, callback, callback_id=None, extra_kwargs={}):
-        assert callable(
-            callback
-        ), "The callback must be a 'callable' object, such as a function."
-        self.remove_callbacks(record._table, record.id, callback_id)
-        callback_obj = Callback(
-            callback, record, callback_id=callback_id, extra_kwargs=extra_kwargs
-        )
-        self._callbacks[record._table][record.id].append(callback_obj)
-        return callback_obj
-
-    def remove_callbacks(self, table, id, callback_or_callback_id_prefix=""):
-        """
-        Remove all callbacks for the record specified by `table` and `id` that have a callback_id
-        starting with the string `callback_or_callback_id_prefix`, or are equal to the provided callback.
-        """
-        if callback_or_callback_id_prefix is None:
-            return
-        callbacks = self._callbacks[table][id]
-        while callback_or_callback_id_prefix in callbacks:
-            callbacks.remove(callback_or_callback_id_prefix)
 
     def _get_cache_path(self, attribute):
         return str(
@@ -130,9 +104,70 @@ class RecordStore(object):
                             getattr(self, attr)[k].update(v)
             except (FileNotFoundError, ValueError):
                 pass
+    
+    def _save_cache(self, attribute):
+        if not self._cache_key:
+            return
+        with open(self._get_cache_path(attribute), "w") as f:
+            json.dump(getattr(self, attribute), f)
+
+    def _update_record(self, table, id, value=None, role=None):
+        callback_queue = []
+        with self._mutex:
+            if role:
+                logger.debug("Updating 'role' for {}/{} to {}".format(table, id, role))
+                self._role[table][id] = role
+                self._save_cache("_role")
+            if value:
+                logger.debug(
+                    "Updating 'value' for {}/{} to {}".format(table, id, value)
+                )
+                old_val = self._values[table][id]
+                difference = list(
+                    diff(
+                        old_val,
+                        value,
+                        ignore=["version", "last_edited_time", "last_edited_by"],
+                        expand=True,
+                    )
+                )
+                self._values[table][id] = value
+                self._save_cache("_values")
+                if old_val and difference:
+                    logger.debug("Value changed! Difference: {}".format(difference))
+                    callback_queue.append((table, id, difference, old_val, value))
+        # run callbacks outside the mutex to avoid lockups
+        for cb in callback_queue:
+            self._trigger_callbacks(*cb)
+
+    def _trigger_callbacks(self, table, id, difference, old_val, new_val):
+        for callback_obj in self._callbacks[table][id]:
+            callback_obj(difference, old_val, new_val)
+
+    def add_callback(self, record, callback, callback_id=None, extra_kwargs={}):
+        assert callable(
+            callback
+        ), "The callback must be a 'callable' object, such as a function."
+        self.remove_callbacks(record._table, record.id, callback_id)
+        callback_obj = Callback(
+            callback, record, callback_id=callback_id, extra_kwargs=extra_kwargs
+        )
+        self._callbacks[record._table][record.id].append(callback_obj)
+        return callback_obj
+
+    def remove_callbacks(self, table, id, callback_or_callback_id_prefix=""):
+        """
+        Remove all callbacks for the record specified by `table` and `id` that 
+        have a callback_id starting with the string 
+        `callback_or_callback_id_prefix`, or are equal to the provided callback.
+        """
+        if callback_or_callback_id_prefix is None:
+            return
+        callbacks = self._callbacks[table][id]
+        while callback_or_callback_id_prefix in callbacks:
+            callbacks.remove(callback_or_callback_id_prefix)
 
     def set_collection_rows(self, collection_id, row_ids):
-
         if collection_id in self._collection_row_ids:
             old_ids = set(self._collection_row_ids[collection_id])
             new_ids = set(row_ids)
@@ -160,16 +195,6 @@ class RecordStore(object):
     def get_collection_rows(self, collection_id):
         return self._collection_row_ids.get(collection_id, [])
 
-    def _save_cache(self, attribute):
-        if not self._cache_key:
-            return
-        with open(self._get_cache_path(attribute), "w") as f:
-            json.dump(getattr(self, attribute), f)
-
-    def _trigger_callbacks(self, table, id, difference, old_val, new_val):
-        for callback_obj in self._callbacks[table][id]:
-            callback_obj(difference, old_val, new_val)
-
     def get_role(self, table, id, force_refresh=False):
         self.get(table, id, force_refresh=force_refresh)
         return self._role[table].get(id, None)
@@ -187,64 +212,26 @@ class RecordStore(object):
             result = self._get(table, id)
         return result if result is not Missing else None
 
-    def _update_record(self, table, id, value=None, role=None):
-
-        callback_queue = []
-
-        with self._mutex:
-            if role:
-                logger.debug("Updating 'role' for {}/{} to {}".format(table, id, role))
-                self._role[table][id] = role
-                self._save_cache("_role")
-            if value:
-                logger.debug(
-                    "Updating 'value' for {}/{} to {}".format(table, id, value)
-                )
-                old_val = self._values[table][id]
-                difference = list(
-                    diff(
-                        old_val,
-                        value,
-                        ignore=["version", "last_edited_time", "last_edited_by"],
-                        expand=True,
-                    )
-                )
-                self._values[table][id] = value
-                self._save_cache("_values")
-                if old_val and difference:
-                    logger.debug("Value changed! Difference: {}".format(difference))
-                    callback_queue.append((table, id, difference, old_val, value))
-
-        # run callbacks outside the mutex to avoid lockups
-        for cb in callback_queue:
-            self._trigger_callbacks(*cb)
-
     def call_get_record_values(self, **kwargs):
         """
         Call the server's getRecordValues endpoint to update the local record store. The keyword arguments map
         table names into lists of (or singular) record IDs to load for that table. Use True to refresh all known
         records for that table.
         """
-
         requestlist = []
-
         for table, ids in kwargs.items():
-
             # ensure "ids" is a proper list
             if ids is True:
                 ids = list(self._values.get(table, {}).keys())
             if isinstance(ids, str):
                 ids = [ids]
-
             # if we're in a transaction, add the requested IDs to a queue to refresh when the transaction completes
             if self._client.in_transaction():
                 self._records_to_refresh[table] = list(
                     set(self._records_to_refresh.get(table, []) + ids)
                 )
                 continue
-
             requestlist += [{"table": table, "id": extract_id(id)} for id in ids]
-
         if requestlist:
             logger.debug(
                 "Calling 'getRecordValues' endpoint for requests: {}".format(
@@ -270,11 +257,9 @@ class RecordStore(object):
             return -1
 
     def call_load_page_chunk(self, page_id, limit=100):
-
         if self._client.in_transaction():
             self._pages_to_refresh.append(page_id)
             return
-
         data = {
             "pageId": page_id,
             "limit": limit,
@@ -282,9 +267,7 @@ class RecordStore(object):
             "chunkNumber": 0,
             "verticalColumns": False,
         }
-
         recordmap = self._client.post("loadPageChunk", data).json()["recordMap"]
-
         self.store_recordmap(recordmap)
 
     def store_recordmap(self, recordmap):
@@ -311,17 +294,14 @@ class RecordStore(object):
         group_by="",
         limit=50
     ):
-
         assert not (
             aggregate and aggregations
         ), "Use only one of `aggregate` or `aggregations` (old vs new format)"
-
         # convert singletons into lists if needed
         if isinstance(aggregate, dict):
             aggregate = [aggregate]
         if isinstance(sort, dict):
             sort = [sort]
-
         data = {
             "collection": {
                 "id": collection_id,
@@ -344,11 +324,8 @@ class RecordStore(object):
                 "type": 'reducer',
             },
         }
-
         response = self._client.post("queryCollection", data).json()
-
         self.store_recordmap(response["recordMap"])
-
         return response["result"]
 
     def handle_post_transaction_refreshing(self):

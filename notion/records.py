@@ -4,7 +4,6 @@ from .logger import logger
 from .operations import build_operation
 from .utils import extract_id, get_by_path
 
-
 class Record(object):
 
     # if a subclass has a list of ids that should be update when child records are removed, it should specify the key here

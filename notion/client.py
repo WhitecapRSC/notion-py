@@ -240,6 +240,7 @@ class NotionClient(object):
             )
         self.set_user_by_uid(uid)
 
+    @deprecated(version="1.0.0", reason="Please use get_all_available_root_pages() instead.")
     def get_top_level_pages(self):
         records = self._update_user_info()
         return [self.get_block(bid) for bid in records["block"].keys()]

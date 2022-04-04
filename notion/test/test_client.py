@@ -45,19 +45,6 @@ class TestClient(unittest.TestCase):
         client = NotionClient(api_key=API_KEY)
         assert client != None
 
-    def test_start_monitoring_argument(self):
-        client = NotionClient(api_key=API_KEY, monitor=True, start_monitoring=True)
-        assert client._monitor.thread != None
-        client.stop_monitoring()
-        assert client._monitor.thread == None
-
-    def test_start_monitoring_method(self):
-        client = NotionClient(api_key=API_KEY, monitor=True)
-        client.start_monitoring()
-        assert client._monitor.thread != None
-        client.stop_monitoring()
-        assert client._monitor.thread == None
-
     def test_get_all_available_pages(self):
         client = NotionClient(api_key=API_KEY)
         assert client.get_all_available_pages() != None
