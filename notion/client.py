@@ -25,7 +25,7 @@ from .settings import API_BASE_URL
 from .space import Space
 from .store import RecordStore
 from .user import User
-from .utils import extract_id, now
+from .utils import deprecated, extract_id, now
 
 class NotionClient(object):
     '''
@@ -96,13 +96,19 @@ class NotionClient(object):
                 'default_sort': {
                     "direction":"ascending",
                     "timestamp":"last_edited_time"
-                }
+                },
+                'default_filter': {},
             }
 
         # self.available_pages = self._get_all_available_pages()
 
     def start_monitoring(self):
+        # TEST_CASE_ADDED:
         self._monitor.poll_async()
+    
+    def stop_monitoring(self):
+        # TEST_CASE_ADDED:
+        self._monitor.stop()
     
     def _fetch_guest_space_data(self, records):
         """
@@ -129,6 +135,46 @@ class NotionClient(object):
             password = getpass("Enter your Notion password:\n")
         self.post("loginWithEmail", {"email": email, "password": password}).json()
 
+    def search(
+        self,
+        query="",
+        sort={"direction": "ascending", "timestamp": "last_edited_time"},
+        filter=None,
+        start_cursor=None,
+        page_size=100,
+    ):
+        '''
+        Searches all original pages, databases, and child pages/databases that 
+        are shared with the integration. It will not return linked databases, 
+        since these duplicate their source databases.
+        
+        Source:
+        https://developers.notion.com/reference/post-search
+
+        @param query (string): The search query.
+
+        '''
+        # TEST_CASE_ADDED:
+        data = {
+            "query": query,
+            "sort": sort,
+            "filter": filter,
+            "start_cursor": start_cursor,
+            "page_size": page_size,
+        }
+        if data['start_cursor'] == None:
+            data.pop('start_cursor')
+        if data['filter'] == {} or data['filter'] == None:
+            data.pop('filter')
+        pages = []
+        response = self.post("search", data).json()
+        pages += response['results']
+        while response['has_more']:
+            data['start_cursor'] = response['next_cursor']
+            response = self.post('search', data).json()
+            pages += response['results']
+        return pages
+
     def get_all_available_pages(self):
         '''
         Get all available pages.
@@ -137,36 +183,52 @@ class NotionClient(object):
         @rtype (list)
         '''
         # TEST_CASE_ADDED:
-        pages = []
-        response = self.post('search', {
-            "query":"",
-            "sort":self._notion_default_config['default_sort'],
-            "page_size":self._notion_default_config['search_page_size']}).json()
-        while response['has_more']:
-            pages += response['results']
-            response = self.post('search', {
-                "query":"",
-                "sort":{self._notion_default_config['default_sort']},
-                "page_size":self._notion_default_config['search_page_size'],
-                "start_cursor":response['next_cursor']}).json()
-        return pages
+        return self.search(filter=self._notion_default_config['default_filter'], 
+            sort=self._notion_default_config['default_sort'], 
+            page_size=self._notion_default_config['search_page_size'])
+        # pages = []
+        # response = self.post('search', {
+        #     "query":"",
+        #     "sort":self._notion_default_config['default_sort'],
+        #     "page_size":self._notion_default_config['search_page_size']}).json()
+        # pages += response['results']
+        # while response['has_more']:
+        #     response = self.post('search', {
+        #         "query":"",
+        #         "sort":{self._notion_default_config['default_sort']},
+        #         "page_size":self._notion_default_config['search_page_size'],
+        #         "start_cursor":response['next_cursor']}).json()
+        # return pages
 
-        self._store.store_recordmap(records)
-        self.current_user = self.get_user(list(records["notion_user"].keys())[0])
-        self.current_space = self.get_space(list(records["space"].keys())[0])
-        return records
+        # self._store.store_recordmap(records)
+        # self.current_user = self.get_user(list(records["notion_user"].keys())[0])
+        # self.current_space = self.get_space(list(records["space"].keys())[0])
+        # return records
 
+    def get_all_available_root_pages(self):
+        '''
+        Gets all available root level pages.
+
+        @return (list): A list of all root pages.
+        @rtype (list)
+        '''
+        # TEST_CASE_ADDED:
+        return [page for page in self.get_all_available_pages() if page.parent == "workspace"]
+
+    @deprecated(version="1.0.0", reason="Unofficial old API v3 endpoint. No longer used.")
     def get_email_uid(self):
         response = self.post("getSpaces", {}).json()
         return {
             response[uid]["notion_user"][uid]["value"]["email"]: uid
             for uid in response.keys()
         }
-
+    
+    @deprecated(version="1.0.0", reason="Unofficial old API v3 endpoint. No longer used.")
     def set_user_by_uid(self, user_id):
         self.session.headers.update({"x-notion-active-user-header": user_id})
         self._update_user_info()
 
+    @deprecated(version="1.0.0", reason="Unofficial old API v3 endpoint. No longer used.")
     def set_user_by_email(self, email):
         email_uid_dict = self.get_email_uid()
         uid = email_uid_dict.get(email)
@@ -343,46 +405,6 @@ class NotionClient(object):
 
     def search_blocks(self, search, limit=25):
         return self.search(query=search, limit=limit)
-
-    def search(
-        self,
-        query="",
-        search_type="BlocksInSpace",
-        limit=100,
-        sort="Relevance",
-        source="quick_find",
-        isDeletedOnly=False,
-        excludeTemplates=False,
-        isNavigableOnly=False,
-        requireEditPermissions=False,
-        ancestors=[],
-        createdBy=[],
-        editedBy=[],
-        lastEditedTime={},
-        createdTime={},
-    ):
-        data = {
-            "type": search_type,
-            "query": query,
-            "spaceId": self.current_space.id,
-            "limit": limit,
-            "filters": {
-                "isDeletedOnly": isDeletedOnly,
-                "excludeTemplates": excludeTemplates,
-                "isNavigableOnly": isNavigableOnly,
-                "requireEditPermissions": requireEditPermissions,
-                "ancestors": ancestors,
-                "createdBy": createdBy,
-                "editedBy": editedBy,
-                "lastEditedTime": lastEditedTime,
-                "createdTime": createdTime,
-            },
-            "sort": sort,
-            "source": source,
-        }
-        response = self.post("search", data).json()
-        self._store.store_recordmap(response["recordMap"])
-        return [self.get_block(result["id"]) for result in response["results"]]
 
     def create_record(self, table, parent, **kwargs):
 

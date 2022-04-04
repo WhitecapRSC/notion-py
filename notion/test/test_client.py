@@ -44,12 +44,35 @@ class TestClient(unittest.TestCase):
     def test_create_client(self):
         client = NotionClient(api_key=API_KEY)
         assert client != None
-    
+
+    def test_start_monitoring_argument(self):
+        client = NotionClient(api_key=API_KEY, monitor=True, start_monitoring=True)
+        assert client._monitor.thread != None
+        client.stop_monitoring()
+        assert client._monitor.thread == None
+
+    def test_start_monitoring_method(self):
+        client = NotionClient(api_key=API_KEY, monitor=True)
+        client.start_monitoring()
+        assert client._monitor.thread != None
+        client.stop_monitoring()
+        assert client._monitor.thread == None
+
     def test_get_all_available_pages(self):
         client = NotionClient(api_key=API_KEY)
         assert client.get_all_available_pages() != None
-        print(client.get_all_available_pages())
-        assert True == True
+        assert len(client.get_all_available_pages()) > 0
+
+    def test_search_get_one_result(self):
+        client = NotionClient(api_key=API_KEY)
+        assert client.search(query="NotionPY SDK", filter={"value": "page", "property": "object"}) != None
+        assert client.search(query="NotionPY SDK", filter={"value": "page", "property": "object"})[0]['properties']['title']['title'][0]['plain_text'] == "NotionPY SDK"
+    
+    def test_search_multiple_page_results(self):
+        client = NotionClient(api_key=API_KEY)
+        pages = client.search(page_size=5)
+        assert pages != None
+        assert len(pages) > 5
 
     # def test_get_block(self, api_key):
     #     client = NotionClient(token_v2=api_key)

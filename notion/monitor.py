@@ -17,6 +17,7 @@ from .records import Record
 class Monitor(object):
 
     thread = None
+    polling = False
 
     def __init__(self, client, root_url="https://msgstore.www.notion.so/primus/"):
         self.client = client
@@ -50,6 +51,7 @@ class Monitor(object):
         return results.encode()
 
     def initialize(self):
+        # TEST_CASE_ADDED:
 
         logger.debug("Initializing new monitoring session.")
 
@@ -130,6 +132,7 @@ class Monitor(object):
         )
 
     def poll(self, retries=10):
+        # TEST_CASE_ADDED:
         logger.debug("Starting new long-poll request")
         try:
             response = self.client.session.get(
@@ -229,17 +232,27 @@ class Monitor(object):
         self.client.refresh_records(**records_to_refresh)
 
     def poll_async(self):
-        if self.thread:
+        # TEST_CASE_ADDED:
+        if self.thread or self.polling:
             # Already polling async; no need to have two threads
             return
+        self.polling = True
         self.thread = threading.Thread(target=self.poll_forever, daemon=True)
         self.thread.start()
 
     def poll_forever(self):
-        while True:
+        # TEST_CASE_ADDED:
+        while self.polling:
             try:
                 self.poll()
             except Exception as e:
                 logger.error("Encountered error during polling!")
                 logger.error(e, exc_info=True)
                 time.sleep(1)
+
+    def stop(self):
+        # TEST_CASE_ADDED:
+        if self.thread:
+            self.polling = False
+            self.thread.join()
+            self.thread = None
