@@ -36,7 +36,7 @@ PAGE_URL = os.getenv('PAGE_URL')
 '''
 Unit Test Classes
 '''
-class TestClient(unittest.TestCase):
+class TestStore(unittest.TestCase):
     def test_callback(self):
         pass
     def test_default_store_initialize(self):
@@ -44,7 +44,10 @@ class TestClient(unittest.TestCase):
         assert client._store != None
     def test_store_no_cache_key(self):
         client = NotionClient(api_key=API_KEY)
-        assert client._store.cache_key == None
+        assert client._store._cache_key == None
     def test_store_cache_key(self):
-        client = NotionClient(api_key=API_KEY, cache_key=hashlib.sha256(('test_key').encode()).hexdigest())
-        assert client._store.cache_key == hashlib.sha256(('test_key').encode()).hexdigest()
+        client = NotionClient(api_key=API_KEY, enable_caching=True, cache_key=hashlib.sha256((API_KEY).encode()).hexdigest())
+        assert client._store._cache_key == hashlib.sha256((API_KEY).encode()).hexdigest()
+
+if __name__ == "__main__":
+    unittest.main()

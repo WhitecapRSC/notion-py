@@ -1,6 +1,7 @@
 import hashlib
 import json
 import re
+import traceback
 import uuid
 
 from requests import Session, HTTPError
@@ -186,24 +187,6 @@ class NotionClient(object):
         return self.search(filter=self._notion_default_config['default_filter'], 
             sort=self._notion_default_config['default_sort'], 
             page_size=self._notion_default_config['search_page_size'])
-        # pages = []
-        # response = self.post('search', {
-        #     "query":"",
-        #     "sort":self._notion_default_config['default_sort'],
-        #     "page_size":self._notion_default_config['search_page_size']}).json()
-        # pages += response['results']
-        # while response['has_more']:
-        #     response = self.post('search', {
-        #         "query":"",
-        #         "sort":{self._notion_default_config['default_sort']},
-        #         "page_size":self._notion_default_config['search_page_size'],
-        #         "start_cursor":response['next_cursor']}).json()
-        # return pages
-
-        # self._store.store_recordmap(records)
-        # self.current_user = self.get_user(list(records["notion_user"].keys())[0])
-        # self.current_space = self.get_space(list(records["space"].keys())[0])
-        # return records
 
     def get_all_available_root_pages(self):
         '''
@@ -214,6 +197,29 @@ class NotionClient(object):
         '''
         # TEST_CASE_ADDED:
         return [page for page in self.get_all_available_pages() if page['parent']['type'] == "workspace"]
+
+    def get_block(self, url_or_id, force_refresh=False, limit=100):
+        """
+        Retrieve an instance of a subclass of Block that maps to the block/page identified by the URL or ID passed in.
+        """
+        block_id = extract_id(url_or_id)
+        block = self.get_record_data("blocks", block_id, force_refresh=force_refresh, limit=limit)
+        if not block:
+            return None
+        if block.get("parent_table") == "collection":
+            if block.get("is_template"):
+                block_class = TemplateBlock
+            else:
+                block_class = CollectionRowBlock
+        else:
+            block_class = BLOCK_TYPES.get(block.get("type", ""), Block)
+        try:
+            output = block_class(self, block_id)
+        except Exception as e:
+            print(e)
+            traceback.print_exc()
+        # return block_class(self, block_id)
+        return output
 
     @deprecated(version="1.0.0", reason="Unofficial old API v3 endpoint. No longer used.")
     def get_email_uid(self):
@@ -247,23 +253,6 @@ class NotionClient(object):
 
     def get_record_data(self, table, id, force_refresh=False, limit=100):
         return self._store.get(table, id, force_refresh=force_refresh, limit=limit)
-
-    def get_block(self, url_or_id, force_refresh=False, limit=100):
-        """
-        Retrieve an instance of a subclass of Block that maps to the block/page identified by the URL or ID passed in.
-        """
-        block_id = extract_id(url_or_id)
-        block = self.get_record_data("block", block_id, force_refresh=force_refresh, limit=limit)
-        if not block:
-            return None
-        if block.get("parent_table") == "collection":
-            if block.get("is_template"):
-                block_class = TemplateBlock
-            else:
-                block_class = CollectionRowBlock
-        else:
-            block_class = BLOCK_TYPES.get(block.get("type", ""), Block)
-        return block_class(self, block_id)
 
     def get_collection(self, collection_id, force_refresh=False):
         """
@@ -331,6 +320,26 @@ class NotionClient(object):
     def refresh_collection_rows(self, collection_id):
         row_ids = [row.id for row in self.get_collection(collection_id).get_rows()]
         self._store.set_collection_rows(collection_id, row_ids)
+
+    def get(self, endpoint):
+        """
+        Calls Get Requests against the API
+        """
+        url = urljoin(API_BASE_URL, endpoint)
+        response = self.session.get(url)
+        if response.status_code == 400:
+            logger.error(
+                "Got 400 error attempting to GET to {}".format(
+                    endpoint
+                )
+            )
+            raise HTTPError(
+                response.json().get(
+                    "message", "There was an error (400) submitting the request."
+                )
+            )
+        response.raise_for_status()
+        return response
 
     def post(self, endpoint, data):
         """

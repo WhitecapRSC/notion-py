@@ -88,10 +88,9 @@ def deprecated(reason, version):
     else:
         raise TypeError(repr(type(reason)))
 
-
 def now():
+    # TEST_CASE_ADDED:
     return int(datetime.now().timestamp() * 1000)
-
 
 def extract_id(url_or_id):
     """
@@ -114,13 +113,12 @@ def extract_id(url_or_id):
     except ValueError:
         raise InvalidNotionIdentifier(input_value)
 
-
 def get_embed_data(source_url):
-
-    return requests.get(
-        "https://api.embed.ly/1/oembed?key=421626497c5d4fc2ae6b075189d602a2&url={}".format(
+    url = "https://api.embed.ly/1/oembed?key=421626497c5d4fc2ae6b075189d602a2&url={}".format(
             source_url
         )
+    return requests.get(
+        url
     ).json()
 
 
@@ -137,19 +135,20 @@ def get_embed_link(source_url):
 
 
 def add_signed_prefix_as_needed(url, client=None, id=""):
-
+    # REVIEW: this should not be necessary.
     if url is None:
         return
 
     if url.startswith(S3_URL_PREFIX):
         url = SIGNED_URL_PREFIX + quote_plus(url) + "?table=block&id=" + id
-        if client:
-            url = client.session.head(url).headers.get("Location")
+        # if client:
+        #     url = client.session.head(url).headers.get("Location")
 
     return url
 
 
 def remove_signed_prefix_as_needed(url):
+    # REVIEW: this should not be necessary.
     if url is None:
         return
     if url.startswith(SIGNED_URL_PREFIX):

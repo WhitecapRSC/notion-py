@@ -68,6 +68,19 @@ class TestClient(unittest.TestCase):
         for p in client.get_all_available_root_pages():
             assert p['parent']['type'] == "workspace"
 
+    def test_get_page(self):
+        client = NotionClient(api_key=API_KEY)
+        page = client.get_block(PAGE_URL)
+        assert page != None
+        assert page['type'] == "page"
+        assert page['id'] == PAGE_URL.split("/")[-1]
+
+    def test_get_block(self):
+        client = NotionClient(api_key=API_KEY)
+        file_block = client.get_block("https://www.notion.so/whitecaprsc/e379a5a9eaee49b7923009ffd54b943e")
+        assert file_block != Record(client, uuid.uuid4().hex)
+        assert file_block == Record(client, 'e379a5a9eaee49b7923009ffd54b943e')
+
     # def test_get_block(self, api_key):
     #     client = NotionClient(token_v2=api_key)
     #     block = client.get_block("https://www.notion.so/a9f9e3a3-d5e5-4e5c-8b4a-d9e6c9e6f9a9")

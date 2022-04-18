@@ -13,7 +13,7 @@ from tzlocal import get_localzone
 
 from .logger import logger
 from .settings import CACHE_DIR
-from .utils import extract_id
+from .utils import deprecated, extract_id
 
 class MissingClass(object):
     def __bool__(self):
@@ -205,8 +205,8 @@ class RecordStore(object):
         result = self._get(table, id)
         # if it's not found, try refreshing the record from the server
         if result is Missing or force_refresh:
-            if table == "block":
-                self.call_load_page_chunk(id,limit=limit)
+            if table == "blocks":
+                self.call_load_page_chunk(table, id, limit=limit)
             else:
                 self.call_get_record_values(**{table: id})
             result = self._get(table, id)
@@ -256,30 +256,30 @@ class RecordStore(object):
         else:
             return -1
 
-    def call_load_page_chunk(self, page_id, limit=100):
+    def call_load_page_chunk(self, call_type, page_id, limit=100):
         if self._client.in_transaction():
             self._pages_to_refresh.append(page_id)
             return
-        data = {
-            "pageId": page_id,
-            "limit": limit,
-            "cursor": {"stack": []},
-            "chunkNumber": 0,
-            "verticalColumns": False,
-        }
-        recordmap = self._client.post("loadPageChunk", data).json()["recordMap"]
-        self.store_recordmap(recordmap)
+        # data = {
+        #     "pageId": page_id,
+        #     "limit": limit,
+        #     "cursor": {"stack": []},
+        #     "chunkNumber": 0,
+        #     "verticalColumns": False,
+        # }
+        recordmap = self._client.get(f'{call_type}/{page_id}').json()
+        # self.store_recordmap(recordmap, call_type)
+        self._update_record(call_type, recordmap['id'], value=recordmap, role=recordmap['object'])
 
-    def store_recordmap(self, recordmap):
-        for table, records in recordmap.items():
-            if not isinstance(records, dict):
-                continue
-            for id, record in records.items():
-                if not isinstance(record, dict):
-                    continue
-                self._update_record(
-                    table, id, value=record.get("value"), role=record.get("role")
-                )
+    @deprecated("No longer used per Notion API v1. This is because the calls for blocks/pages/records are now different and get from the api the blocks in a cleaner fasion than before.", "v1.0.0")
+    def store_recordmap(self, recordmap, table='blocks'):
+        raise(NotImplementedError)
+        # for id, record in recordmap.items():
+        #     if not isinstance(record, dict):
+        #         continue
+        #     self._update_record(
+        #         table, id, value=record.get("value"), role=record.get("role")
+        #     )
 
     def call_query_collection(
         self,

@@ -36,18 +36,15 @@ PAGE_URL = os.getenv('PAGE_URL')
 '''
 Unit Test Classes
 '''
-class TestMonitor(unittest.TestCase):
-    def test_start_monitoring_argument(self):
-        client = NotionClient(api_key=API_KEY, monitor=True, start_monitoring=True)
-        assert client._monitor.thread != None
-        client.stop_monitoring()
-        assert client._monitor.thread == None
-    def test_start_monitoring_method(self):
-        client = NotionClient(api_key=API_KEY, monitor=True)
-        client.start_monitoring()
-        assert client._monitor.thread != None
-        client.stop_monitoring()
-        assert client._monitor.thread == None
+class TestBlock(unittest.TestCase):
+    def test_get_page_id(self):
+        pass
+    def test_get_page_child(self):
+        pass
+    def test_update_page_title(self):
+        pass
+    def test_add_child(self):
+        pass
 
 if __name__ == "__main__":
     unittest.main()
