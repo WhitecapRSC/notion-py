@@ -15,6 +15,7 @@ from .operations import build_operation
 from .records import Record
 from .settings import S3_URL_PREFIX, BASE_URL
 from .utils import (
+    deprecated,
     extract_id,
     now,
     get_embed_link,
@@ -163,7 +164,6 @@ class Children(object):
         )
 
         return self._get_block(block.id)
-
 
 class Block(Record):
     """
@@ -425,37 +425,7 @@ class Block(Record):
             ]
         )
 
-
-class DividerBlock(Block):
-
-    _type = "divider"
-
-
-class ColumnListBlock(Block):
-    """
-    Must contain only ColumnBlocks as children.
-    """
-
-    _type = "column_list"
-
-    def evenly_space_columns(self):
-        with self._client.as_atomic_transaction():
-            for child in self.children:
-                child.column_ratio = 1 / len(self.children)
-
-
-class ColumnBlock(Block):
-    """
-    Should be added as children of a ColumnListBlock.
-    """
-
-    column_ratio = field_map("format.column_ratio")
-
-    _type = "column"
-
-
 class BasicBlock(Block):
-
     title = property_map("title")
     title_plaintext = property_map(
         "title",
@@ -478,54 +448,8 @@ class BasicBlock(Block):
     def _str_fields(self):
         return super()._str_fields() + ["title"]
 
-
-class TodoBlock(BasicBlock):
-
-    _type = "to_do"
-
-    checked = property_map(
-        "checked",
-        python_to_api=lambda x: "Yes" if x else "No",
-        api_to_python=lambda x: x == "Yes",
-    )
-
-    def _str_fields(self):
-        return super()._str_fields() + ["checked"]
-
-
-class CodeBlock(BasicBlock):
-
-    _type = "code"
-
-    language = property_map("language")
-    wrap = field_map("format.code_wrap")
-
-
-class FactoryBlock(BasicBlock):
-    """
-    Also known as a "Template Button". The title is the button text, and the children are the templates to clone.
-    """
-
-    _type = "factory"
-
-
-class HeaderBlock(BasicBlock):
-
-    _type = "header"
-
-
-class SubheaderBlock(BasicBlock):
-
-    _type = "sub_header"
-
-
-class SubsubheaderBlock(BasicBlock):
-
-    _type = "sub_sub_header"
-
-
 class PageBlock(BasicBlock):
-
+    
     _type = "page"
 
     icon = field_map(
@@ -557,6 +481,89 @@ class PageBlock(BasicBlock):
                 backlinks.append(self._client.get_block(block_id))
         return backlinks
 
+class ChildPageBlock(PageBlock):
+    # TEST_CASE_ADDED:
+    _type = "child_page"
+
+class ParagraphBlock(Block):
+    # TEST_CASE_ADDED:
+    """
+    This should be the default text block now as of the public Notion API release 20220222.
+    """
+    _type = "paragraph"
+
+@deprecated("Use Header 1, 2 or 3 blocks instead", "v1.0.0")
+class HeaderBlock(BasicBlock):
+
+    _type = "header"
+
+@deprecated("Use Header 1, 2 or 3 blocks instead", "v1.0.0")
+class SubheaderBlock(BasicBlock):
+
+    _type = "sub_header"
+
+@deprecated("Use Header 1, 2 or 3 blocks instead", "v1.0.0")
+class SubsubheaderBlock(BasicBlock):
+
+    _type = "sub_sub_header"
+
+class Heading1Block(Block):
+    # TEST_CASE_ADDED:
+    _type = "heading_1"
+
+class Heading2Block(Block):
+    # TEST_CASE_ADDED:
+    _type = "heading_2"
+
+class Heading3Block(Block):
+    # TEST_CASE_ADDED:
+    _type = "heading_3"
+
+class ColumnListBlock(Block):
+    """
+    Must contain only ColumnBlocks as children.
+    """
+
+    _type = "column_list"
+
+    def evenly_space_columns(self):
+        with self._client.as_atomic_transaction():
+            for child in self.children:
+                child.column_ratio = 1 / len(self.children)
+
+class ColumnBlock(Block):
+    """
+    Should be added as children of a ColumnListBlock.
+    """
+
+    column_ratio = field_map("format.column_ratio")
+
+    _type = "column"
+
+class DividerBlock(Block):
+
+    _type = "divider"
+
+class TodoBlock(BasicBlock):
+
+    _type = "to_do"
+
+    checked = property_map(
+        "checked",
+        python_to_api=lambda x: "Yes" if x else "No",
+        api_to_python=lambda x: x == "Yes",
+    )
+
+    def _str_fields(self):
+        return super()._str_fields() + ["checked"]
+
+
+class CodeBlock(BasicBlock):
+
+    _type = "code"
+
+    language = property_map("language")
+    wrap = field_map("format.code_wrap")
 
 class BulletedListBlock(BasicBlock):
 
@@ -594,13 +601,19 @@ class EquationBlock(BasicBlock):
     _type = "equation"
 
 
+class FactoryBlock(BasicBlock):
+    """
+    Also known as a "Template Button". The title is the button text, and the children are the templates to clone.
+    """
+
+    _type = "factory"
+
 class MediaBlock(Block):
 
     caption = property_map("caption")
 
     def _str_fields(self):
         return super()._str_fields() + ["caption"]
-
 
 class EmbedBlock(MediaBlock):
 
@@ -653,11 +666,9 @@ class EmbedOrUploadBlock(EmbedBlock):
         self.source = data["url"]
         self.file_id = data["url"][len(S3_URL_PREFIX) :].split("/")[0]
 
-
 class VideoBlock(EmbedOrUploadBlock):
 
     _type = "video"
-
 
 class FileBlock(EmbedOrUploadBlock):
 
@@ -666,21 +677,17 @@ class FileBlock(EmbedOrUploadBlock):
 
     _type = "file"
 
-
 class AudioBlock(EmbedOrUploadBlock):
 
     _type = "audio"
-
 
 class PDFBlock(EmbedOrUploadBlock):
 
     _type = "pdf"
 
-
 class ImageBlock(EmbedOrUploadBlock):
 
     _type = "image"
-
 
 class BookmarkBlock(EmbedBlock):
 
@@ -696,21 +703,19 @@ class BookmarkBlock(EmbedBlock):
         self._client.post("setBookmarkMetadata", {"blockId": self.id, "url": url})
         self.refresh()
 
-
 class LinkToCollectionBlock(MediaBlock):
 
     _type = "link_to_collection"
     # TODO: add custom fields
 
-
 class BreadcrumbBlock(MediaBlock):
 
     _type = "breadcrumb"
 
-
 class CollectionViewBlock(MediaBlock):
 
-    _type = "collection_view"
+    # _type = "collection_view"
+    _type = "child_database"
 
     @property
     def collection(self):
@@ -753,7 +758,6 @@ class CollectionViewBlock(MediaBlock):
 
     def _str_fields(self):
         return super()._str_fields() + ["title", "collection"]
-
 
 class CollectionViewBlockViews(Children):
 
@@ -802,7 +806,6 @@ class CollectionViewBlockViews(Children):
         # time.sleep(3)
         return view
 
-
 class CollectionViewPageBlock(CollectionViewBlock):
 
     icon = field_map(
@@ -819,56 +822,45 @@ class CollectionViewPageBlock(CollectionViewBlock):
 
     _type = "collection_view_page"
 
-
 class FramerBlock(EmbedBlock):
 
     _type = "framer"
-
 
 class TweetBlock(EmbedBlock):
 
     _type = "tweet"
 
-
 class GistBlock(EmbedBlock):
 
     _type = "gist"
-
 
 class DriveBlock(EmbedBlock):
 
     _type = "drive"
 
-
 class FigmaBlock(EmbedBlock):
 
     _type = "figma"
-
 
 class LoomBlock(EmbedBlock):
 
     _type = "loom"
 
-
 class TypeformBlock(EmbedBlock):
 
     _type = "typeform"
-
 
 class CodepenBlock(EmbedBlock):
 
     _type = "codepen"
 
-
 class MapsBlock(EmbedBlock):
 
     _type = "maps"
 
-
 class InvisionBlock(EmbedBlock):
 
     _type = "invision"
-
 
 class CalloutBlock(BasicBlock):
 
@@ -876,9 +868,6 @@ class CalloutBlock(BasicBlock):
 
     _type = "callout"
 
-
 BLOCK_TYPES = {
-    cls._type: cls
-    for cls in locals().values()
-    if type(cls) == type and issubclass(cls, Block) and hasattr(cls, "_type")
+    cls._type: cls for cls in locals().values() if type(cls) == type and issubclass(cls, Block) and hasattr(cls, "_type")
 }

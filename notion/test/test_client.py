@@ -71,9 +71,8 @@ class TestClient(unittest.TestCase):
     def test_get_page(self):
         client = NotionClient(api_key=API_KEY)
         page = client.get_block(PAGE_URL)
-        assert page != None
-        assert page['type'] == "page"
-        assert page['id'] == PAGE_URL.split("/")[-1]
+        assert(page == ChildPageBlock(client, PAGE_URL))
+        # assert page['type'] == "child_page"
 
     def test_get_block(self):
         client = NotionClient(api_key=API_KEY)
