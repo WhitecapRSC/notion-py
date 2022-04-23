@@ -520,6 +520,7 @@ class Heading3Block(Block):
     _type = "heading_3"
 
 class ColumnListBlock(Block):
+    # TEST_CASE_ADDED:
     """
     Must contain only ColumnBlocks as children.
     """
@@ -711,6 +712,10 @@ class LinkToCollectionBlock(MediaBlock):
 class BreadcrumbBlock(MediaBlock):
 
     _type = "breadcrumb"
+
+class TableBlock(BasicBlock):
+    
+    _type = "table"
 
 class CollectionViewBlock(MediaBlock):
 

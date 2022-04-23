@@ -81,12 +81,37 @@ class TestBlock(unittest.TestCase):
         block = client.get_block(url)
         assert(type(block) == CollectionViewBlock)
         assert(block == CollectionViewBlock(client, url))
+    def test_get_collection_childpage(self):
+        url = "https://www.notion.so/whitecaprsc/Hello-World-0c587c40f9794d4a887887596a9b1ab3"
+        client = NotionClient(api_key=API_KEY)
+        block = client.get_block(url)
+        assert(type(block) == ChildPageBlock)
+        assert(block == ChildPageBlock(client, url))
+    def test_get_inner_childpage(self):
+        url = "https://www.notion.so/whitecaprsc/Inner-Page-cd0389af07a444d9aabec5efa9fa3fd4"
+        client = NotionClient(api_key=API_KEY)
+        block = client.get_block(url)
+        assert(type(block) == ChildPageBlock)
+        assert(block == ChildPageBlock(client, url))
     def test_get_imageblock(self):
         url = "https://www.notion.so/whitecaprsc/NotionPY-SDK-5751cd88a7694420910464fa378e9a96#e379a5a9eaee49b7923009ffd54b943e"
         client = NotionClient(api_key=API_KEY)
         block = client.get_block(url)
         assert(type(block) == ImageBlock)
         assert(block == ImageBlock(client, url))
+    def test_get_columnlist_paragraphblock(self):
+        url = "https://www.notion.so/whitecaprsc/NotionPY-SDK-5751cd88a7694420910464fa378e9a96#d2e2d2aba6a24078b50dd66697229f1f"
+        client = NotionClient(api_key=API_KEY)
+        block = client.get_block(url)
+        assert(type(block) == ParagraphBlock)
+        assert(block == ParagraphBlock(client, url))
+    def test_get_tableblock(self):
+        url = "https://www.notion.so/whitecaprsc/NotionPY-SDK-5751cd88a7694420910464fa378e9a96#94ff6866c6a141ef8671c8113dde9c30"
+        client = NotionClient(api_key=API_KEY)
+        block = client.get_block(url)
+        assert(type(block) == TableBlock)
+        assert(block == TableBlock(client, url))
+    
     
 
 if __name__ == "__main__":
