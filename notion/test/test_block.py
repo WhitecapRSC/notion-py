@@ -49,8 +49,8 @@ class TestBlock(unittest.TestCase):
         url = PAGE_URL
         client = NotionClient(api_key=API_KEY)
         block = client.get_block(url)
-        assert(type(block) == PageBlock)
-        assert(block == PageBlock(client, url))
+        assert(type(block) == ChildPageBlock)
+        assert(block == ChildPageBlock(client, url))
     def test_get_paragraphblock(self):
         url = "https://www.notion.so/whitecaprsc/NotionPY-SDK-5751cd88a7694420910464fa378e9a96#b02acafc512f414983b5bdba940146be"
         client = NotionClient(api_key=API_KEY)
@@ -99,9 +99,13 @@ class TestBlock(unittest.TestCase):
         block = client.get_block(url)
         assert(type(block) == ImageBlock)
         assert(block == ImageBlock(client, url))
-    def test_get_columnlist_paragraphblock(self):
+    def test_get_column_paragraphblock(self):
         url = "https://www.notion.so/whitecaprsc/NotionPY-SDK-5751cd88a7694420910464fa378e9a96#d2e2d2aba6a24078b50dd66697229f1f"
         client = NotionClient(api_key=API_KEY)
+        block = client.get_block(url)
+        assert(type(block) == ParagraphBlock)
+        assert(block == ParagraphBlock(client, url))
+        url = "https://www.notion.so/whitecaprsc/NotionPY-SDK-5751cd88a7694420910464fa378e9a96#0f626e679d9c456aba48e386345dbd7b"
         block = client.get_block(url)
         assert(type(block) == ParagraphBlock)
         assert(block == ParagraphBlock(client, url))
@@ -111,8 +115,24 @@ class TestBlock(unittest.TestCase):
         block = client.get_block(url)
         assert(type(block) == TableBlock)
         assert(block == TableBlock(client, url))
-    
-    
+    def test_get_dividerblock(self):
+        url = "https://www.notion.so/whitecaprsc/NotionPY-SDK-5751cd88a7694420910464fa378e9a96#0e8fe3a581d44c33bfa1c31675149494"
+        client = NotionClient(api_key=API_KEY)
+        block = client.get_block(url)
+        assert(type(block) == DividerBlock)
+        assert(block == DividerBlock(client, url))
+    def test_get_todoblock(self):
+        url = "https://www.notion.so/whitecaprsc/NotionPY-SDK-5751cd88a7694420910464fa378e9a96#0b2d42f30ef540518bf4146063411b05"
+        client = NotionClient(api_key=API_KEY)
+        block = client.get_block(url)
+        assert(type(block) == TodoBlock)
+        assert(block == TodoBlock(client, url))
+        assert(block.checked == False)
+        url = "https://www.notion.so/whitecaprsc/NotionPY-SDK-5751cd88a7694420910464fa378e9a96#ed91e26127994c82960495bb44c448e3"
+        block = client.get_block(url)
+        assert(type(block) == TodoBlock)
+        assert(block == TodoBlock(client, url))
+        assert(block.checked == True)
 
 if __name__ == "__main__":
     unittest.main()

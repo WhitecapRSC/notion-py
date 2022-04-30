@@ -14,6 +14,9 @@ clean:
 install:
 	python setup.py install
 
+test:
+	@pytest ./notion
+
 test-coverage-report:
 	@pytest --cov ./notion
 

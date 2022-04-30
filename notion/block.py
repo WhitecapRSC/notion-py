@@ -201,7 +201,6 @@ class Block(Record):
 
     @property
     def parent(self):
-
         if not self.is_alias:
             parent_id = self.get("parent_id")
             parent_table = self.get("parent_table")
@@ -245,7 +244,6 @@ class Block(Record):
         return mappers
 
     def _convert_diff_to_changelist(self, difference, old_val, new_val):
-
         mappers = self._get_mappers()
         changed_fields = set()
         changes = []
@@ -254,7 +252,6 @@ class Block(Record):
 
         for d in deepcopy(difference):
             operation, path, values = d
-
             # normalize path
             path = path if path else []
             path = path.split(".") if isinstance(path, str) else path
@@ -282,7 +279,6 @@ class Block(Record):
             remaining.append(d)
 
         if content_changed:
-
             old = deepcopy(old_val.get("content", []))
             new = deepcopy(new_val.get("content", []))
 
@@ -317,9 +313,7 @@ class Block(Record):
         Notion UI when you delete a block. Note that it doesn't *actually* delete it, just orphan it, unless
         `permanently` is set to True, in which case we make an extra call to hard-delete.
         """
-
         if not self.is_alias:
-
             # If it's not an alias, we actually remove the block
             with self._client.as_atomic_transaction():
 
@@ -341,16 +335,13 @@ class Block(Record):
                             table=self.get("parent_table"),
                         )
                     )
-
             if permanently:
                 block_id = self.id
                 self._client.post(
                     "deleteBlocks", {"blockIds": [block_id], "permanentlyDelete": True}
                 )
                 del self._client._store._values["block"][block_id]
-
         else:
-
             # Otherwise, if it's an alias, we only remove it from the alias parent's content list
             self._client.submit_transaction(
                 build_operation(
@@ -366,28 +357,22 @@ class Block(Record):
             target_block, Block
         ), "target_block must be an instance of Block or one of its subclasses"
         assert position in ["first-child", "last-child", "before", "after"]
-
         if "child" in position:
             new_parent_id = target_block.id
             new_parent_table = "block"
         else:
             new_parent_id = target_block.get("parent_id")
             new_parent_table = target_block.get("parent_table")
-
         if position in ["first-child", "before"]:
             list_command = "listBefore"
         else:
             list_command = "listAfter"
-
         list_args = {"id": self.id}
         if position in ["before", "after"]:
             list_args[position] = target_block.id
-
         with self._client.as_atomic_transaction():
-
             # First, remove the node, before we re-insert and re-activate it at the target location
             self.remove()
-
             if not self.is_alias:
                 # Set the parent_id of the moving block to the new parent, and mark it as active again
                 self._client.submit_transaction(
@@ -404,7 +389,6 @@ class Block(Record):
                 )
             else:
                 self._alias_parent = new_parent_id
-
             # Add the moving block's ID to the "content" list of the new parent
             self._client.submit_transaction(
                 build_operation(
@@ -414,7 +398,6 @@ class Block(Record):
                     command=list_command,
                 )
             )
-
         # update the local block cache to reflect the updates
         self._client.refresh_records(
             block=[
@@ -532,7 +515,9 @@ class ColumnListBlock(Block):
             for child in self.children:
                 child.column_ratio = 1 / len(self.children)
 
+@deprecated("ColumnBlocks don't exist, they are ParagraphBlocks", "v1.0.0")
 class ColumnBlock(Block):
+    
     """
     Should be added as children of a ColumnListBlock.
     """
@@ -542,11 +527,11 @@ class ColumnBlock(Block):
     _type = "column"
 
 class DividerBlock(Block):
-
+    # TEST_CASE_ADDED:
     _type = "divider"
 
 class TodoBlock(BasicBlock):
-
+    # TEST_CASE_ADDED:
     _type = "to_do"
 
     checked = property_map(
@@ -557,7 +542,6 @@ class TodoBlock(BasicBlock):
 
     def _str_fields(self):
         return super()._str_fields() + ["checked"]
-
 
 class CodeBlock(BasicBlock):
 
@@ -570,26 +554,21 @@ class BulletedListBlock(BasicBlock):
 
     _type = "bulleted_list"
 
-
 class NumberedListBlock(BasicBlock):
 
     _type = "numbered_list"
-
 
 class ToggleBlock(BasicBlock):
 
     _type = "toggle"
 
-
 class QuoteBlock(BasicBlock):
 
     _type = "quote"
 
-
 class TextBlock(BasicBlock):
 
     _type = "text"
-
 
 class EquationBlock(BasicBlock):
 
